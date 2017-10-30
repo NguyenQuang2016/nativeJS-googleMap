@@ -1,6 +1,6 @@
 import { Component, OnInit} from '@angular/core';
 import {} from '@types/googlemaps';
-let this_appComponentPointer;
+let _this;
 
 @Component({
   selector: 'app-root',
@@ -15,13 +15,16 @@ export class AppComponent implements OnInit {
   currentApiRequest: google.maps.places.PlaceSearchRequest = null;
   mapInstance: google.maps.Map;
   userPosition: google.maps.LatLngLiteral;
+  iconUrl: string;
+  requestFuncQueue: any[] = [];
+  mutexRequestFuncQueue = true;
   private mutexPlaceApi = true;
 
   ngOnInit() {
     console.log(`OnInit`);
-    /* can not use 'this' pointer in lambda expression
-    please use this_appComponentPointer. fuck of typeScript/JavaScript */
-    this_appComponentPointer = this;
+    /* can not use 'this' pointer when function call paramenter function
+    please use _this. fuck of typeScript/JavaScript */
+    _this = this;
     this.waitGoogleApisLoaded();
   }
   initNativeJsGoogleMap(): void {
@@ -31,12 +34,16 @@ export class AppComponent implements OnInit {
     };
     const mapDiv: HTMLDivElement = <HTMLDivElement>document.getElementById('ggmap');
     this.mapInstance = new google.maps.Map(mapDiv, opt);
-    this.setUserMarker();
+    this.setUserMarkerAsync();
     this.placeService =  new google.maps.places.PlacesService(this.mapInstance);
     google.maps.event.addListener(this.mapInstance, 'dragend', () => {
+      if (this.currentApiRequest === null) {
+        return;
+      }
       this.currentApiRequest.bounds = this.mapInstance.getBounds();
-      this.DisplayMarker();
+      this.DisplayMarkerAsync();
     });
+    this.QueueProcessAsync();
   }
 
   async waitGoogleApisLoaded(): Promise<void> {
@@ -58,23 +65,48 @@ export class AppComponent implements OnInit {
       bounds: this.mapInstance.getBounds(),
       type: 'bank',
     };
-    this.DisplayMarker();
+    this.iconUrl = 'assets/Bank.png';
+    this.DisplayMarkerAsync();
+  }
+  DisplayCafe() {
+    this.currentApiRequest = {
+      bounds: this.mapInstance.getBounds(),
+      type: 'cafe',
+    };
+    this.iconUrl = 'assets/Cafe.png';
+    this.DisplayMarkerAsync();
+  }
+  DisplayAtm() {
+    this.currentApiRequest = {
+      bounds: this.mapInstance.getBounds(),
+      type: 'atm',
+    };
+    this.iconUrl = 'assets/Atm.png';
+    this.DisplayMarkerAsync();
   }
 
-  async DisplayMarker(): Promise<void> {
-    /* can not use 'this' pointer when function call paramenter function
-    please use this_appComponentPointer. fuck of typeScript/JavaScript */
-    if (this_appComponentPointer.currentApiRequest === null) {
+  async DisplayMarkerAsync(): Promise<void> {
+
+    if (this.currentApiRequest === null) {
       return;
     }
-    await this_appComponentPointer.callPlaceApiConflictFunc(this_appComponentPointer.nearbySearch);
-    for (let i = 0; i < 5; i++) {
-      await this_appComponentPointer.callPlaceApiConflictFunc(this_appComponentPointer.nextPage);
+
+  /* ______________________________________conflict code______________________________________*/
+     while (!this.mutexRequestFuncQueue) {  /* waiting */  }
+    this.mutexRequestFuncQueue = false;
+    if (this.requestFuncQueue.length > 0) {
+      // may be this code will generate a big memory bug if "memory recovery" in js may be work wrong
+      this.requestFuncQueue.splice(0, this.requestFuncQueue.length);
     }
+    this.requestFuncQueue.push(this.nearbySearch );
+     for (let i = 0; i < 3; i++) {
+      this.requestFuncQueue.push(this.nextPage);
+     }
+     this.mutexRequestFuncQueue = true;
   }
 
 
-  async setUserMarker(): Promise<void> {
+  async setUserMarkerAsync(): Promise<void> {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(position => {
         console.log(position.coords);
@@ -104,41 +136,46 @@ export class AppComponent implements OnInit {
   }
 
   /* ______________________________________conflict code______________________________________*/
-  async callPlaceApiConflictFunc(func: () => void ): Promise<void> {
+  async QueueProcessAsync(): Promise<void> {
+    while (true ) {
     // check locked state
-    while (!this.mutexPlaceApi) {
-      // waiting for release mutexPlaceApi
-    }
+      while (!this.mutexRequestFuncQueue) {  /* waiting */  }
     // lock resource when use.
-    this.mutexPlaceApi = false;
-    // do conflict code
-    func();
-    // Google rule (defend when DDoS attack): can not make more than 1 request per 2 seconds
-    // delay 2 seconds before next request
-    await this.delay(2000);
+      this.mutexRequestFuncQueue = false;
+      if (this.requestFuncQueue.length !== 0) {
+
+        const messfunc = this.requestFuncQueue.shift();
+        messfunc();
+      }
     // release resource when done.
-    this.mutexPlaceApi = true;
+      this.mutexRequestFuncQueue = true;
+      // Google rule (defend when DDoS attack): can not make more than 1 request per 2 seconds
+      // delay 2 seconds before next request
+      await this.delay(2000);
+    }
   }
   /* ___________________________________end conflict code____________________________________*/
   nearbySearch(): void {
     /* can not use 'this' pointer when function call paramenter function
-    please use this_appComponentPointer. fuck of typeScript/JavaScript */
-    this_appComponentPointer.placeService.nearbySearch(
-      this_appComponentPointer.currentApiRequest, (results, status, pagination) => {
+    please use _this. fuck of typeScript/JavaScript */
+    _this.placeService.nearbySearch(
+      _this.currentApiRequest, (results, status, pagination) => {
         console.log('results:', results);
-        this_appComponentPointer.PushMarkers(results);
-        this_appComponentPointer.pagination = pagination;
+        _this.PushMarkersAsync(results);
+        _this.pagination = pagination;
       });
   }
   nextPage(): void {
-     /* can not use 'this' pointer when function call paramenter function
-    please use this_appComponentPointer. fuck of typeScript/JavaScript */
-
-    if (this_appComponentPointer.pagination.hasNextPage) {
-      this_appComponentPointer.pagination.nextPage();
+    /* can not use 'this' pointer when function call paramenter function
+    please use _this. fuck of typeScript/JavaScript */
+    if (_this.pagination.hasNextPage) {
+      _this.pagination.nextPage();
     }
   }
-  async PushMarkers(marker_arg: google.maps.places.PlaceResult[]): Promise<void> {
+  async PushMarkersAsync(marker_arg: google.maps.places.PlaceResult[]): Promise<void> {
+    // need to clear marker
+    // implement in here:
+    // ...
     console.log('PushMarkers');
     if (marker_arg === null) {
       return;
@@ -148,14 +185,13 @@ export class AppComponent implements OnInit {
       const lng = place_iterator.geometry.location.lng();
       const markersOpt: google.maps.MarkerOptions = {
         icon: {
-          url: 'assets/Bank.png',
+          url: this.iconUrl,
           scaledSize: new google.maps.Size(50, 50),
           labelOrigin: new google.maps.Point(25, 0),
         },
         draggable: false,
         position: {lat: lat, lng: lng },
       };
-
       const user_marker = new google.maps.Marker( markersOpt);
       user_marker.setMap(this.mapInstance);
     }
