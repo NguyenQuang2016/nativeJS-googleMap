@@ -3,6 +3,13 @@
     /* width: 800px; */
     width:100% 
   } 
+  #rcorners {
+    border-radius: 25px;
+    background: #73AD21;
+    padding: 20px; 
+    width: 200px;
+    height: 150px;    
+}
   /* W3.CSS 4.05 October 2017 by Jan Egil and Borge Refsnes */
   html{box-sizing:border-box}*,*:before,*:after{box-sizing:inherit}
   /* Extract from normalize.css by Nicolas Gallagher and Jonathan Neal git.io/normalize */

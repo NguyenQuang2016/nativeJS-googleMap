@@ -19,6 +19,9 @@ export class AppComponent implements OnInit {
   requestFuncQueue: any[] = [];
   mutexRequestFuncQueue = true;
   private mutexPlaceApi = true;
+  infowindow: google.maps.InfoWindow;
+
+
 
   ngOnInit() {
     console.log(`OnInit`);
@@ -44,6 +47,13 @@ export class AppComponent implements OnInit {
       this.DisplayMarkerAsync();
     });
     this.QueueProcessAsync();
+    const infoWindowsOpt: google.maps.InfoWindowOptions = {
+      // _ngcontent is important REMEMBER that
+      content: '<div _ngcontent-c0 id="rcorners">' +
+        'Rounded corners!' +
+        '</div>'
+    };
+    this.infowindow = new google.maps.InfoWindow(infoWindowsOpt);
   }
 
   async waitGoogleApisLoaded(): Promise<void> {
@@ -192,8 +202,15 @@ export class AppComponent implements OnInit {
         draggable: false,
         position: {lat: lat, lng: lng },
       };
-      const user_marker = new google.maps.Marker( markersOpt);
-      user_marker.setMap(this.mapInstance);
+      const place_marker = new google.maps.Marker( markersOpt);
+      place_marker.setMap(this.mapInstance);
+      place_marker.addListener('click', function() {
+        _this.infowindow.open(_this.mapInstance, place_marker);
+        // this is HARD CODE from google debug
+        const rcorners = document.getElementById('rcorners');
+        rcorners.parentElement.parentElement.parentElement.parentElement.style.visibility = 'collapse';
+        rcorners.style.visibility = 'visible';
+      });
     }
   }
 }
