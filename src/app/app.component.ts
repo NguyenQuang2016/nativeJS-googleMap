@@ -137,6 +137,7 @@ export class AppComponent implements OnInit {
             color: 'blue',
             text: 'User position',
           },
+          animation: google.maps.Animation.BOUNCE
         };
         const user_marker = new google.maps.Marker( markersOpt);
         user_marker.setMap(this.mapInstance);
@@ -144,6 +145,10 @@ export class AppComponent implements OnInit {
       });
     }
   }
+
+  // geocodeTest(){
+  //   var service = google.maps.Geocoder
+  // }
 
   /* ______________________________________conflict code______________________________________*/
   async QueueProcessAsync(): Promise<void> {
@@ -201,6 +206,7 @@ export class AppComponent implements OnInit {
         },
         draggable: false,
         position: {lat: lat, lng: lng },
+        animation: google.maps.Animation.BOUNCE,
       };
       const place_marker = new google.maps.Marker( markersOpt);
       place_marker.setMap(this.mapInstance);
